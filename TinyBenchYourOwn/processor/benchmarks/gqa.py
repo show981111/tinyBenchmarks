@@ -1,10 +1,10 @@
-from lmm.benchmark_processors.benchmark_processor import BenchmarkProcessor
+from TinyBenchYourOwn.processor.benchmark_processor import BenchmarkProcessor
 
 
 class GQAprocessor(BenchmarkProcessor):
     """Class for processing GQA result."""
 
-    def get_metric(self, predicted: str, answer: str) -> float:
+    def get_correctness(self, predicted: str, answer: str) -> float:
         """Based on the prediction and answer, give the score."""
         return 1 if predicted == answer else 0
 

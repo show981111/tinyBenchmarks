@@ -1,0 +1,3 @@
+[submodule "TinyBenchYourOwn/irt_trainer/py-irt"]
+	path = TinyBenchYourOwn/irt_trainer/py-irt
+	url = https://github.com/felipemaiapolo/py-irt.git
