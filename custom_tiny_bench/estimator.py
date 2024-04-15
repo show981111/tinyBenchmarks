@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import json
+import logging
 from pathlib import Path
 import pickle
 from typing import Callable, Tuple, Union
@@ -15,6 +16,8 @@ from custom_tiny_bench.irt_trainer.irt import (
 from custom_tiny_bench.irt_trainer.trainer import Anchor
 from custom_tiny_bench.processor.benchmark_processor import Prediction
 from custom_tiny_bench.irt_trainer.utils import item_curve
+
+logger = logging.getLogger(__name__)
 
 
 class Estimator:
@@ -42,7 +45,7 @@ class Estimator:
                 saved_dir / f"anchors/{scenario}/{scenario}_weights.pickle", "rb"
             ) as handle:
                 anchor_data.weights[scenario] = pickle.load(handle)
-
+        self.anc = anchor_data
         A, B, _ = load_irt_parameters(saved_dir / "irt_model")
         seen_items = np.hstack(
             [
@@ -50,6 +53,9 @@ class Estimator:
                 for scenario in scenarios_position.keys()
             ]
         ).tolist()
+
+        assert np.nan not in seen_items
+
         unseen_items = [
             i for i in range(model_correctness.shape[1]) if i not in seen_items
         ]
@@ -76,7 +82,7 @@ class Estimator:
             )  # Predictions
 
             for idx, score in enumerate(preds[scenario]):
-                print(
+                logger.info(
                     f"[IRT] predicted score for {idx}_th model in {scenario}: {score:.6f}"
                 )
 
@@ -108,7 +114,7 @@ class Estimator:
                 pirt_preds[scenario] = np.array(pirt_pred)  # Predictions
 
                 for idx, score in enumerate(pirt_preds[scenario]):
-                    print(
+                    logger.info(
                         f"[p-IRT] predicted score for {idx}_th model in {scenario}: {score:.6f}"
                     )
 
@@ -124,7 +130,7 @@ class Estimator:
                 )
 
                 for idx, score in enumerate(gpirt_preds[scenario]):
-                    print(
+                    logger.info(
                         f"[gp-IRT] predicted score for {idx}_th model in {scenario}: {score:.6f}"
                     )
 

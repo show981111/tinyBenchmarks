@@ -5,7 +5,7 @@ from collections import OrderedDict, defaultdict
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 from pydantic import BaseModel, Field, FilePath, root_validator
 from tqdm import tqdm
 import numpy as np
@@ -21,11 +21,11 @@ class BenchmarkConfig(BaseModel):
     name: str
     results: list[EvaluationResult]
     question_file: FilePath
-    subscenario_keyword: str
+    subscenario_keyword: Optional[str] = None
     _models: list[str] = []  # populated automatically
 
     @root_validator(skip_on_failure=True)
-    def _check_default_batch_size(cls, values: dict[str, Any]) -> dict[str, Any]:
+    def _populate_missing_fields(cls, values: dict[str, Any]) -> dict[str, Any]:
         results: list[EvaluationResult] = values["results"]
         models: list[str] = []
         if len(results) == 0:
@@ -33,6 +33,9 @@ class BenchmarkConfig(BaseModel):
         for res in results:
             models.append(res.model)
         values["_models"] = models
+        sub_key = values["subscenario_keyword"]
+        if sub_key is None:
+            values["subscenario_keyword"] = values["name"] + "_sub_key"
         return values
 
 
@@ -78,8 +81,8 @@ class BenchmarkProcessor(ABC):
                 sub = (
                     v[self.subscenario_keyword]
                     if self.subscenario_keyword in v
-                    else f"{bm_config}_sub"
-                )
+                    else f"{bm_config.name}_sub"
+                )  # If subscenario is not provided for each question, default it to {name of benchmark}_sub
                 self.questions.data[qid] = Question(
                     id=qid, answer=v["answer"], subscenario=sub
                 )
@@ -154,7 +157,11 @@ class BenchmarkProcessor(ABC):
                         raise Exception(
                             "Train data should have predictions for all questions."
                         )
-                    # else: if it is not for train, we can ommit predictions for evaluation.
+                    else:
+                        answer_from_all_models.append(
+                            Prediction(question_id=qid, correctness=np.nan)
+                        )
+                        # if it is not for train, we can ommit predictions for evaluation.
                 else:
                     answer_from_all_models.append(
                         self.predictions.predictions_per_model[model][qid]
@@ -170,9 +177,6 @@ class BenchmarkProcessor(ABC):
 
         self._create_correctness_per_subscenario(train)
         # order of keys are deterministic since we are using ordereddict.
-        question_ids = list(self.questions.data.keys())
-
-        question_id_to_idx: dict[str, int] = {}
         self.idx_to_question_id: dict[int, str] = {}
 
         model_to_row_idx: dict[str, int] = {}
@@ -180,9 +184,6 @@ class BenchmarkProcessor(ABC):
 
         self.subcenarios_position: defaultdict[str, list[int]] = defaultdict(list)
 
-        for idx, qid in enumerate(question_ids):
-            question_id_to_idx[qid] = idx
-            self.idx_to_question_id[idx] = qid
         for idx, model in enumerate(self.models):
             model_to_row_idx[model] = idx
             self.row_idx_to_model[idx] = model
@@ -199,6 +200,9 @@ class BenchmarkProcessor(ABC):
                 )  # Each element's shape is [number_of_models * 1]
 
                 self.subcenarios_position[sub].append(col_idx)
+                self.idx_to_question_id[col_idx] = correctness_of_one_question[
+                    0
+                ].question_id
                 col_idx += 1
 
         assert len(correctness_np_list) == len(self.questions.data)

@@ -29,7 +29,9 @@ class TinyBenchmark:
     (5) If the user gives, predictions on the anchor point, + data we need to estimate the performance, estimate the performance
     """
 
-    def __init__(self, save_dir: Path = Path("tiny_benchmark_results")):
+    def __init__(
+        self, save_dir: Path = Path("tiny_benchmark_results"), train: bool = True
+    ):
         """Initialize TinyBenchmark.
 
         Args:
@@ -46,6 +48,13 @@ class TinyBenchmark:
         self.correctness_array: Optional[npt.NDArray] = None
         self.scenarios_position: Optional[dict[str, list[int]]] = None
         self.balance_weights: Optional[npt.NDArray] = None
+        self.train_mode = train
+
+    def eval(self):
+        self.train_mode = False
+
+    def train(self):
+        self.train_mode = True
 
     def prepare_data(self, benchmark_configs: list[BenchmarkConfig]) -> None:
         """Prepare train data for IRT. Record the position of each senario in the train data.
@@ -84,7 +93,9 @@ class TinyBenchmark:
                     bm_config.name,
                 )
                 return
-            d = self.bm_to_proc[bm_config.name].create_correctness_array()
+            d = self.bm_to_proc[bm_config.name].create_correctness_array(
+                self.train_mode
+            )
             correctness_list.append(d)
             self.scenarios_position[bm_config.name] = list(
                 range(col_idx, col_idx + d.shape[1])
@@ -178,17 +189,16 @@ class TinyBenchmark:
         for scenario in self.scenarios_position.keys():
             save_anchor_dir = self.save_dir / f"anchors/{scenario}"
             save_anchor_dir.mkdir(exist_ok=True, parents=True)
-            with open(save_anchor_dir / f"{scenario}_question_ids.txt", "w") as handle:
-                handle.write(
-                    str(
-                        [
-                            self.bm_to_proc[scenario].idx_to_question_id[idx]
-                            for idx in anchor_data.points[scenario]
-                        ]
-                    )
+            with open(save_anchor_dir / f"{scenario}_question_ids.json", "w") as handle:
+                json.dump(
+                    [
+                        self.bm_to_proc[scenario].idx_to_question_id[idx]
+                        for idx in anchor_data.points[scenario]
+                    ],
+                    handle,
                 )
 
-        print("Points", anchor_data.points[scenario])
+        logger.info("Points: %s", str(anchor_data.points[scenario]))
         for scenario in self.scenarios_position.keys():
             Y_anchor = self.test_data[:, self.scenarios_position[scenario]][
                 :, anchor_data.points[scenario]
