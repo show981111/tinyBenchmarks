@@ -1,5 +1,6 @@
 import ast
 import json
+import logging
 from pathlib import Path
 import pickle
 from typing import Literal
@@ -8,6 +9,8 @@ from custom_tiny_bench.processor.benchmark_processor import (
     EvaluationResult,
 )
 from custom_tiny_bench.tiny_benchmark import TinyBenchmark
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 def main():

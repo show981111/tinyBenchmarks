@@ -5,7 +5,7 @@ from collections import OrderedDict, defaultdict
 import json
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union
 from pydantic import BaseModel, Field, FilePath, root_validator
 from tqdm import tqdm
 import numpy as np
@@ -77,14 +77,14 @@ class BenchmarkProcessor(ABC):
         logger.info("Opening %s", bm_config.question_file)
         with open(bm_config.question_file) as file:
             formatted_question = self.format_questions(json.load(file))
-            for qid, v in formatted_question.items():
+            for q in formatted_question:
                 sub = (
-                    v[self.subscenario_keyword]
-                    if self.subscenario_keyword in v
-                    else f"{bm_config.name}_sub"
+                    q[self.subscenario_keyword]
+                    if self.subscenario_keyword in q
+                    else f"{bm_config.name}_sub_default"
                 )  # If subscenario is not provided for each question, default it to {name of benchmark}_sub
-                self.questions.data[qid] = Question(
-                    id=qid, answer=v["answer"], subscenario=sub
+                self.questions.data[q["id"]] = Question(
+                    id=q["id"], answer=q["answer"], subscenario=sub
                 )
 
         for result in bm_config.results:
@@ -103,11 +103,6 @@ class BenchmarkProcessor(ABC):
                     self.predictions.predictions_per_model[result.model][q_id] = (
                         Prediction(question_id=q_id, correctness=c)
                     )
-            logger.info(
-                "Naive accuracy of %s: %.5f",
-                result.model,
-                sum / len(self.questions.data),
-            )
 
         self.models = list(self.predictions.predictions_per_model.keys())
         print(f"Config: {self.models}")
@@ -118,13 +113,18 @@ class BenchmarkProcessor(ABC):
         self.subscenarios = list(unique_sub)
 
     @abstractmethod
-    def format_questions(self, questions: dict) -> dict:
-        """Format the questions dictionary so that it is in the form of {question_id: {answer: <answer string>, <subscenario_keyword>: <subscenario>}}
+    def format_questions(self, questions: Any) -> list[dict]:
+        """Format the questions dictionary so that it is in the form of
+            [{id: <question id>, answer: <answer string>, <subscenario_keyword>(optional): <subscenario>}]
 
         This function is applied to the json.load(file) where the file is the input question file.
-        question_id and answer are required, subscenario can be omitted. If omitted, default to <benchmark_name>_sub : <benchmark_name>_sub.
+        question_id and answer are required, subscenario can be omitted. If omitted, default to <benchmark_name>_sub_key : <benchmark_name>_sub_default.
         As long as those fields are present, it is okay to have different fields.
+
+        Default implementation sets the question_id to index. Use super.format_questions(questions) to use default.
         """
+        for idx, q in enumerate(questions):
+            q["id"] = idx
         return questions
 
     @abstractmethod
