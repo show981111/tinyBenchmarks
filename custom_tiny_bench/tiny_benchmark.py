@@ -113,6 +113,7 @@ class TinyBenchmark:
                 N = len(self.scenarios_position[bm])  # number of questions in that bm
                 for sub in proc.subscenarios:
                     n_i = len(proc.subcenarios_position[sub])
+                    logger.info("%s has %d number of questions", sub, n_i)
                     balance_weights[proc.subcenarios_position[sub]] = N / (n_sub * n_i)
 
         return balance_weights

@@ -34,9 +34,13 @@ class Estimator:
     ]:
         anchor_data = Anchor({}, {})
         for scenario in scenarios_position.keys():
-            with open(saved_dir / f"anchors/{scenario}_indices.pickle", "rb") as handle:
+            with open(
+                saved_dir / f"anchors/{scenario}/{scenario}_indices.pickle", "rb"
+            ) as handle:
                 anchor_data.points[scenario] = pickle.load(handle)
-            with open(saved_dir / f"anchors/{scenario}_weights.pickle", "rb") as handle:
+            with open(
+                saved_dir / f"anchors/{scenario}/{scenario}_weights.pickle", "rb"
+            ) as handle:
                 anchor_data.weights[scenario] = pickle.load(handle)
 
         A, B, _ = load_irt_parameters(saved_dir / "irt_model")

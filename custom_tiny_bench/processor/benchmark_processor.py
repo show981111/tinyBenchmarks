@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+from ast import Tuple
 from collections import OrderedDict, defaultdict
 import json
 import logging
@@ -43,7 +44,7 @@ class Question(BaseModel):
 
 class Prediction(BaseModel):
     question_id: str
-    prediction: str
+    correctness: float
 
 
 class QuestionDict(BaseModel):
@@ -67,11 +68,9 @@ class BenchmarkProcessor(ABC):
 
     def __init__(self, bm_config: BenchmarkConfig) -> None:
         self.subscenario_keyword = bm_config.subscenario_keyword
-        self.models = bm_config._models
         self.questions = QuestionDict(data={})
         self.predictions = PredictionDict(predictions_per_model={})
 
-        print(f"Config: {self.models}")
         logger.info("Opening %s", bm_config.question_file)
         with open(bm_config.question_file) as file:
             formatted_question = self.format_questions(json.load(file))
@@ -86,15 +85,29 @@ class BenchmarkProcessor(ABC):
                 )
 
         for result in bm_config.results:
+            sum = 0
             logger.info("Opening %s", result.prediction_file)
             with open(result.prediction_file) as file:
                 formatted_predictions = self.format_predictions(json.load(file))
                 logger.info("Number of predictions: %d", len(formatted_predictions))
+
                 self.predictions.predictions_per_model[result.model] = {}
                 for q_id, pred in formatted_predictions.items():
-                    self.predictions.predictions_per_model[result.model][q_id] = (
-                        Prediction(question_id=q_id, prediction=pred)
+                    c = self.get_correctness(
+                        predicted=pred, answer=self.questions.data[q_id].answer
                     )
+                    sum += c
+                    self.predictions.predictions_per_model[result.model][q_id] = (
+                        Prediction(question_id=q_id, correctness=c)
+                    )
+            logger.info(
+                "Naive accuracy of %s: %.5f",
+                result.model,
+                sum / len(self.questions.data),
+            )
+
+        self.models = list(self.predictions.predictions_per_model.keys())
+        print(f"Config: {self.models}")
 
         unique_sub: set[str] = set()
         for v in self.questions.data.values():
@@ -123,153 +136,85 @@ class BenchmarkProcessor(ABC):
     def get_correctness(self, predicted: str, answer: str) -> float:
         """Based on the prediction and answer, give the score(correctness)."""
 
-    def create_correctness_array(self, train: bool = True) -> npt.NDArray:
-        """Create an IRT train data: Dimension of (model_size * questions) where each cell is correctness, and record the position of each question."""
+    # @abstractmethod
+    # def format_correctness(self, result_file): ...
 
-        # order of keys are deterministic since we are using ordereddict.
-        question_ids = list(self.questions.data.keys())
-        models = list(self.predictions.predictions_per_model.keys())
-
-        self.question_id_to_idx: dict[str, int] = {}
-        self.idx_to_question_id: dict[int, str] = {}
-
-        self.model_to_row_idx: dict[str, int] = {}
-        self.row_idx_to_model: dict[int, str] = {}
-
-        self.subcenarios_position: defaultdict[str, list[int]] = defaultdict(list)
-
-        for idx, qid in enumerate(question_ids):
-            self.question_id_to_idx[qid] = idx
-            self.idx_to_question_id[idx] = qid
-        for idx, model in enumerate(models):
-            self.model_to_row_idx[model] = idx
-            self.row_idx_to_model[idx] = model
-
-        self.correctness_array: npt.NDArray = np.zeros(
-            [
-                len(self.models),
-                len(self.questions.data.keys()),
-            ]
+    def _create_correctness_per_subscenario(
+        self, train: bool = True
+    ) -> None:  # sub -> correctness array.
+        self.correctness_per_subscenario: defaultdict[str, list[list[Prediction]]] = (
+            defaultdict(list)
         )
 
-        for qid, data in self.questions.data.items():
-            self.subcenarios_position[data.subscenario].append(
-                self.question_id_to_idx[qid]
-            )
-
-            for model, pred in self.predictions.predictions_per_model.items():
-                correctness = np.nan
-                if not (qid in pred.keys()):
+        for qid, question_detail in self.questions.data.items():
+            answer_from_all_models = []
+            for model in self.models:
+                if not (qid in self.predictions.predictions_per_model[model].keys()):
                     if train:
                         raise Exception(
                             "Train data should have predictions for all questions."
                         )
                     # else: if it is not for train, we can ommit predictions for evaluation.
                 else:
-                    correctness = self.get_correctness(
-                        predicted=pred[qid].prediction, answer=data.answer
+                    answer_from_all_models.append(
+                        self.predictions.predictions_per_model[model][qid]
                     )
 
-                self.correctness_array[
-                    self.model_to_row_idx[model], self.question_id_to_idx[qid]
-                ] = correctness
-
-        for idx, model in enumerate(models):
-            logger.info(
-                "[create_correctness_array] Average accuracy of models\n %s",
-                str(
-                    [
-                        (model, self.correctness_array[idx, :].mean())
-                        for idx, model in enumerate(models)
-                    ]
-                ),
+            assert len(answer_from_all_models) == len(self.models)
+            self.correctness_per_subscenario[question_detail.subscenario].append(
+                answer_from_all_models
             )
 
+    def create_correctness_array(self, train: bool = True) -> npt.NDArray:
+        """Create an IRT train data: Dimension of (model_size * questions) where each cell is correctness, and record the position of each question."""
+
+        self._create_correctness_per_subscenario(train)
+        # order of keys are deterministic since we are using ordereddict.
+        question_ids = list(self.questions.data.keys())
+
+        question_id_to_idx: dict[str, int] = {}
+        self.idx_to_question_id: dict[int, str] = {}
+
+        model_to_row_idx: dict[str, int] = {}
+        self.row_idx_to_model: dict[int, str] = {}
+
+        self.subcenarios_position: defaultdict[str, list[int]] = defaultdict(list)
+
+        for idx, qid in enumerate(question_ids):
+            question_id_to_idx[qid] = idx
+            self.idx_to_question_id[idx] = qid
+        for idx, model in enumerate(self.models):
+            model_to_row_idx[model] = idx
+            self.row_idx_to_model[idx] = model
+
+        col_idx = 0
+        correctness_np_list: list[npt.NDArray] = []
+        for (
+            sub,
+            correctness_list_of_questions,
+        ) in self.correctness_per_subscenario.items():
+            for correctness_of_one_question in correctness_list_of_questions:
+                correctness_np_list.append(
+                    np.array([cor.correctness for cor in correctness_of_one_question])
+                )  # Each element's shape is [number_of_models * 1]
+
+                self.subcenarios_position[sub].append(col_idx)
+                col_idx += 1
+
+        assert len(correctness_np_list) == len(self.questions.data)
+        self.correctness_array = np.vstack(correctness_np_list).T.astype(float)
+
+        assert self.correctness_array.shape == (
+            len(self.models),
+            len(self.questions.data),
+        )
         assert sum(
             [len(indices) for indices in self.subcenarios_position.values()]
         ) == len(self.questions.data.keys())
 
         logger.info(
-            "[create_correctness_array] Shape of correctness array %s, expceted: %d, %d",
+            "[create_correctness_array] Shape of correctness array %s",
             str(self.correctness_array.shape),
-            len(self.models),
-            len(self.question_id_to_idx.keys()),
         )
 
         return self.correctness_array
-
-    # def create_correctness_for_all_models(self) -> dict:
-    #     """Create the formatted correctness result per model."""
-    #     data = {}
-    #     for model in self.models:
-    #         data[model] = self._create_correctness_for_model(
-    #             self.questions, self.predictions[model]
-    #         )
-
-    #     return data
-
-    # def _create_correctness_for_model(
-    #     self,
-    #     questions: dict,
-    #     predictions: dict,
-    # ) -> dict:
-    #     """Based on questions and predictions, create correctness dictionary.
-
-    #     Subsecnario here means the type of the question we want to categorize. The questions dictionary should include "subscenario_keyword"
-    #     field for each question where the value is the corresponding subscenario.
-
-    #     Args:
-    #         subscenario_keyword: name of the type keyword ex) structural_type, detailed_type
-    #         subscenarios: list of subscenario ex) choose, logical etc
-    #         questions: format should be
-    #             key = 'question_id'
-    #             value = {'answer': answer_string, 'subscenario': subscenario_string} should at least be included.
-    #         predictions: format should be
-    #             key = 'question_id'
-    #             value = answer_string
-    #     """
-    #     data = {sub: defaultdict(list) for sub in self.subscenarios}
-
-    #     for qid, question in tqdm(questions.items()):
-    #         answer = question["answer"]
-    #         predicted = predictions[qid]
-    #         subscenario = (
-    #             question[self.subscenario_keyword]
-    #             if self.subscenario_keyword != "N/A"
-    #             else "N/A"
-    #         )
-
-    #         data[subscenario]["correctness"].append(
-    #             self.get_correctness(predicted, answer)
-    #         )
-
-    #     return data
-
-    # @staticmethod
-    # def collect_correctness_per_subscenario(
-    #     correctness_dict: dict[str, dict[str, list]], models: list[str]
-    # ) -> dict:
-    #     """
-    #     Returns:
-    #         dictionary of 'data' and 'model'
-    #         'data' contains correctness per each subscenario (type). Shape is (number of prompts, number of models)
-    #         'model' contains the name of all models
-    #     """
-    #     data = {}
-    #     data["data"] = {}
-    #     data["models"] = models
-
-    #     for sub in correctness_dict[list(correctness_dict.keys())[0]].keys():
-    #         data["data"][sub] = {}
-    #         data["data"][sub]["correctness"] = []
-
-    #         for model in models:
-    #             data["data"][sub]["correctness"].append(
-    #                 correctness_dict[model][sub]["correctness"]
-    #             )
-
-    #         data["data"][sub]["correctness"] = np.array(
-    #             data["data"][sub]["correctness"]
-    #         ).T.astype(float)
-
-    #     return data
