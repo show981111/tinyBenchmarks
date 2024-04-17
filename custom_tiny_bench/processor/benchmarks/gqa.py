@@ -7,7 +7,7 @@ class GQAprocessor(BenchmarkProcessor):
 
     def get_correctness(self, predicted: str, answer: str) -> float:
         """Based on the prediction and answer, give the score."""
-        return 1 if predicted == answer else 0
+        return 1 if predicted.lower() == answer.lower() else 0
 
     def format_questions(self, questions: Any) -> dict:
         data = []

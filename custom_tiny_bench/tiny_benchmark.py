@@ -30,7 +30,10 @@ class TinyBenchmark:
     """
 
     def __init__(
-        self, save_dir: Path = Path("tiny_benchmark_results"), train: bool = True
+        self,
+        save_dir: Path = Path("tiny_benchmark_results"),
+        train: bool = True,
+        balance: bool = True,
     ):
         """Initialize TinyBenchmark.
 
@@ -49,6 +52,7 @@ class TinyBenchmark:
         self.scenarios_position: Optional[dict[str, list[int]]] = None
         self.balance_weights: Optional[npt.NDArray] = None
         self.train_mode = train
+        self.balance = balance
 
     def eval(self):
         self.train_mode = False
@@ -118,14 +122,19 @@ class TinyBenchmark:
     def _get_balance_weights(self, number_of_questions: int) -> npt.NDArray:
         balance_weights = np.ones(number_of_questions)
 
-        for bm, proc in self.bm_to_proc.items():
-            n_sub = len(proc.subscenarios)  # number of subscenarios
-            if n_sub > 1:
-                N = len(self.scenarios_position[bm])  # number of questions in that bm
-                for sub in proc.subscenarios:
-                    n_i = len(proc.subcenarios_position[sub])
-                    logger.info("%s has %d number of questions", sub, n_i)
-                    balance_weights[proc.subcenarios_position[sub]] = N / (n_sub * n_i)
+        if self.balance:
+            for bm, proc in self.bm_to_proc.items():
+                n_sub = len(proc.subscenarios)  # number of subscenarios
+                if n_sub > 1:
+                    N = len(
+                        self.scenarios_position[bm]
+                    )  # number of questions in that bm
+                    for sub in proc.subscenarios:
+                        n_i = len(proc.subcenarios_position[sub])
+                        logger.info("%s has %d number of questions", sub, n_i)
+                        balance_weights[proc.subcenarios_position[sub]] = N / (
+                            n_sub * n_i
+                        )
 
         return balance_weights
 

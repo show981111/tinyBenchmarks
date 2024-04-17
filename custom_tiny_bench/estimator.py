@@ -80,8 +80,12 @@ class Estimator:
             preds[scenario] = (Y_anchor * anchor_data.weights[scenario]).sum(
                 axis=1
             )  # Predictions
+            Y_naive = (balance_weights * model_correctness)[
+                :, scenarios_position[scenario]
+            ][:, anchor_data.points[scenario]]
 
             for idx, score in enumerate(preds[scenario]):
+                logger.info(f"[Naive accuracy]: {Y_naive[idx].mean():.6f}")
                 logger.info(
                     f"[IRT] predicted score for {idx}_th model in {scenario}: {score:.6f}"
                 )
