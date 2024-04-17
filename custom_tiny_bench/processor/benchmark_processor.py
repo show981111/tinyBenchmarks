@@ -1,15 +1,12 @@
-from abc import ABC, abstractmethod
-
-from ast import Tuple
-from collections import OrderedDict, defaultdict
 import json
 import logging
-from pathlib import Path
-from typing import Any, Optional, Union
-from pydantic import BaseModel, Field, FilePath, root_validator
-from tqdm import tqdm
+from abc import ABC, abstractmethod
+from collections import OrderedDict, defaultdict
+from typing import Any, Optional
+
 import numpy as np
 import numpy.typing as npt
+from pydantic import BaseModel, FilePath, root_validator
 
 
 class EvaluationResult(BaseModel):

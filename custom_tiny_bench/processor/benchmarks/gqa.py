@@ -1,4 +1,5 @@
 from typing import Any
+
 from custom_tiny_bench.processor.benchmark_processor import BenchmarkProcessor
 
 

@@ -1,8 +1,8 @@
 import json
 import logging
 from pathlib import Path
-import pickle
 from typing import Literal, Optional, Tuple, Union
+
 import numpy as np
 import numpy.typing as npt
 
@@ -20,13 +20,20 @@ logger = logging.getLogger(__name__)
 class TinyBenchmark:
     """Top most class that creates tiny benchmarks and estimate the performance.
 
-    Receives (1) Question files, Predictions from the user
-    (2) Process them and prepare the train data for IRT model
-    (3) Train IRT model and save the model
-    (4) Generates anchor points per bench mark and save everything we need to estimate the
-        performance on predictions on this anchor points
-    ------------
-    (5) If the user gives, predictions on the anchor point, + data we need to estimate the performance, estimate the performance
+    This class supports,
+    Train mode:
+        (1) Receives Question files, Predictions from the user
+        (2) Process them and prepare the train data for IRT model
+        (3) Train IRT model and save the model
+        (4) Generates anchor points/weights per benchmark
+        (5) Estimate the performance of the test models.
+
+    Eval mode:
+        (1) load anchor weights from the save_dir
+        (2) process the model's result and recompute the balance weights and positions.
+        (3) Estimate the performance
+
+    Refer to examples/ to how to use each method.
     """
 
     def __init__(
@@ -41,6 +48,8 @@ class TinyBenchmark:
             save_dir:
                 If using this for training, this path is the path for saving models and anchors.
                 If using this for estimating, this path is the path that has models and anchors.
+            train: train mode
+            balance: balance the weights based on the number of exampels in each subscenario.
         """
         self.trainer = IrtTrainer(save_dir)
         self.save_dir = save_dir
@@ -180,6 +189,17 @@ class TinyBenchmark:
         random_state=42,
         clustering: Union[Literal["irt"], Literal["correct."]] = "irt",
     ) -> Anchor:
+        """Extracts anchors from each benchmark.
+
+        It will save the anchors under save_dir.
+        Three files will be generated
+            {save_dir}/{benchmark name}/{benchmark name}_indices.pickle
+            {save_dir}/{benchmark name}/{benchmark name}_question_ids.pickle
+            {save_dir}/{benchmark name}/{benchmark name}_weights.pickle
+        Indices is the indices of anchors in train data.
+        Question_ids are the question ids of anchors.
+        Weights is the anchor weights.
+        """
         if self.train_data is None or self.test_data is None:
             raise Exception(
                 "Need to train the irt first before getting anchors. Call train_irt() first!"

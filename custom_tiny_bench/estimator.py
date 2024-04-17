@@ -1,9 +1,8 @@
-from dataclasses import dataclass
-import json
 import logging
-from pathlib import Path
 import pickle
-from typing import Callable, Tuple, Union
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -14,13 +13,13 @@ from custom_tiny_bench.irt_trainer.irt import (
     load_irt_parameters,
 )
 from custom_tiny_bench.irt_trainer.trainer import Anchor
-from custom_tiny_bench.processor.benchmark_processor import Prediction
 from custom_tiny_bench.irt_trainer.utils import item_curve
 
 logger = logging.getLogger(__name__)
 
 
 class Estimator:
+    """Estimate the performance of models using IRT, p-IRT, and gp-IRT."""
 
     def get_estimates(
         self,

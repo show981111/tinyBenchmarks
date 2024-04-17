@@ -1,10 +1,11 @@
+import json
+import os
 from pathlib import Path
+
+import jsonlines
 import numpy as np
 from scipy.optimize import minimize
-import jsonlines
-import os
-import json
-import time
+
 from custom_tiny_bench.irt_trainer.utils import *
 
 

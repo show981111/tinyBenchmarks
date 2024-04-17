@@ -1,12 +1,12 @@
+import pickle
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Optional, Tuple, Union
-import pickle
+from typing import Literal, Optional, Union
 
-from sklearn.cluster import KMeans
-from sklearn.metrics.pairwise import pairwise_distances
 import numpy as np
 import numpy.typing as npt
+from sklearn.cluster import KMeans
+from sklearn.metrics.pairwise import pairwise_distances
 from tqdm import tqdm
 
 from custom_tiny_bench.irt_trainer.irt import (
