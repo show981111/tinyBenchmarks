@@ -6,6 +6,7 @@ Only things you need to supply are (1) benchmark data files (2) model's predicti
 ## Supported benchmarks
 
 - GQA
+- Text-VQA
 
 ## Adding your own benchmark
 

@@ -2,11 +2,12 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from collections import OrderedDict, defaultdict
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
 from pydantic import BaseModel, FilePath, root_validator
+from tqdm import tqdm
 
 
 class EvaluationResult(BaseModel):
@@ -38,7 +39,7 @@ class BenchmarkConfig(BaseModel):
 
 class Question(BaseModel):
     id: str
-    answer: str
+    answers: Union[str, list[str]]
     subscenario: str
 
 
@@ -80,8 +81,8 @@ class BenchmarkProcessor(ABC):
                     if self.subscenario_keyword in q
                     else f"{bm_config.name}_sub_default"
                 )  # If subscenario is not provided for each question, default it to {name of benchmark}_sub
-                self.questions.data[q["id"]] = Question(
-                    id=q["id"], answer=q["answer"], subscenario=sub
+                self.questions.data[q["question_id"]] = Question(
+                    id=q["question_id"], answers=q["answers"], subscenario=sub
                 )
 
         for result in bm_config.results:
@@ -94,7 +95,7 @@ class BenchmarkProcessor(ABC):
                 self.predictions.predictions_per_model[result.model] = {}
                 for q_id, pred in formatted_predictions.items():
                     c = self.get_correctness(
-                        predicted=pred, answer=self.questions.data[q_id].answer
+                        predicted=pred, answer=self.questions.data[q_id].answers
                     )
                     sum += c
                     self.predictions.predictions_per_model[result.model][q_id] = (
@@ -112,16 +113,16 @@ class BenchmarkProcessor(ABC):
     @abstractmethod
     def format_questions(self, questions: Any) -> list[dict]:
         """Format the questions dictionary so that it is in the form of
-            [{id: <question id>, answer: <answer string>, <subscenario_keyword>(optional): <subscenario>}]
+            [{question_id: <question id>, answers: <answer string or list>, <subscenario_keyword>(optional): <subscenario>}]
 
         This function is applied to the json.load(file) where the file is the input question file.
-        question_id and answer are required, subscenario can be omitted. If omitted, default to <benchmark_name>_sub_key : <benchmark_name>_sub_default.
+        question_id and answers are required, subscenario can be omitted. If omitted, default to <benchmark_name>_sub_key : <benchmark_name>_sub_default.
         As long as those fields are present, it is okay to have different fields.
 
         Default implementation sets the question_id to index. Use super.format_questions(questions) to use default.
         """
         for idx, q in enumerate(questions):
-            q["id"] = idx
+            q["question_id"] = idx
         return questions
 
     @abstractmethod
@@ -133,7 +134,7 @@ class BenchmarkProcessor(ABC):
         return predictions
 
     @abstractmethod
-    def get_correctness(self, predicted: str, answer: str) -> float:
+    def get_correctness(self, predicted: str, answer: Union[str, list[str]]) -> float:
         """Based on the prediction and answer, give the score(correctness)."""
 
     # @abstractmethod
@@ -217,5 +218,36 @@ class BenchmarkProcessor(ABC):
             "[create_correctness_array] Shape of correctness array %s",
             str(self.correctness_array.shape),
         )
+
+        need_binarize = np.any(
+            (self.correctness_array != 0) & (self.correctness_array != 1)
+        )
+
+        if need_binarize:
+            prev_mean = self.correctness_array.mean(axis=1)
+            cs = np.linspace(0.01, 0.99, 100)  # Threshold values to consider
+
+            # Find the best threshold value that minimizes the difference between averages
+            c = cs[
+                np.argmin(
+                    [
+                        np.mean(
+                            (
+                                np.abs(
+                                    (self.correctness_array > c).mean(axis=1)
+                                    - self.correctness_array.mean(axis=1)
+                                )
+                            )
+                        )
+                        for c in tqdm(cs)
+                    ]
+                )
+            ]
+            # Apply the threshold to train and test responses
+            self.correctness_array = (self.correctness_array > c).astype(int)
+            logger.info(
+                "After binarize, error is %s",
+                str(self.correctness_array.mean(axis=1) - prev_mean),
+            )
 
         return self.correctness_array

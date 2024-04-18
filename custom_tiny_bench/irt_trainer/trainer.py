@@ -27,7 +27,15 @@ class Anchor:
 class IrtTrainer:
 
     def __init__(self, save_dir: Path = Path("data")) -> None:
+        self.train_dir = save_dir / "train"
+        self.dataset_dir = save_dir / "datasets"
+        self.model_dir = save_dir / "models"
         self.save_dir = save_dir
+
+        self.save_dir.mkdir(exist_ok=True, parents=True)
+        self.train_dir.mkdir(exist_ok=True)
+        self.dataset_dir.mkdir(exist_ok=True)
+        self.model_dir.mkdir(exist_ok=True)
 
     def train(
         self,
@@ -49,15 +57,18 @@ class IrtTrainer:
         train_ind = [i for i in range(Y_train.shape[0]) if i not in val_ind]
 
         # Saving the training dataset in the needed format
-        create_irt_dataset(Y_train[train_ind], "data/irt_val_dataset.jsonlines")
+        create_irt_dataset(
+            Y_train[train_ind],
+            str(self.dataset_dir / "irt_val_dataset.jsonlines"),
+        )
 
         # Trying different Ds
         errors = []
         errors2: list[list] = []
 
         for D in tqdm(Ds):
-            dataset_name = self.save_dir / "irt_val_dataset.jsonlines"
-            model_name = self.save_dir / "irt_val_model/"
+            dataset_name = self.dataset_dir / "irt_val_dataset.jsonlines"
+            model_name = self.model_dir / "irt_val_model/"
 
             # Load trained IRT model parameters
             train_irt_model(dataset_name, model_name, D, lr, epochs, device)
@@ -99,12 +110,12 @@ class IrtTrainer:
         ind_D = np.argmin(np.array(errors))
         D = Ds[ind_D]
 
-        create_irt_dataset(Y_train, self.save_dir / "irt_dataset.jsonlines")
+        create_irt_dataset(Y_train, str(self.dataset_dir / "irt_dataset.jsonlines"))
 
         # Train irt
         train_irt_model(
-            dataset_name=self.save_dir / "irt_dataset.jsonlines",
-            model_name=self.save_dir / "irt_model/",
+            dataset_name=self.dataset_dir / "irt_dataset.jsonlines",
+            model_name=self.model_dir / "irt_model/",
             D=D,
             lr=lr,
             epochs=epochs,
@@ -124,8 +135,6 @@ class IrtTrainer:
             lambds[scenario] = get_lambda(b, v / (4 * number_item))
 
         save_file_path = self.save_dir / "lambds.pickle"
-        print(save_file_path)
-        save_file_path.parent.mkdir(exist_ok=True, parents=True)
 
         with open(save_file_path, "wb") as handle:
             pickle.dump(lambds, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -147,7 +156,7 @@ class IrtTrainer:
         """
         anchor_points = {}
         anchor_weights = {}
-        model_dir = self.save_dir / "irt_model"
+        model_dir = self.model_dir / "irt_model/"
 
         for scenario, pos in scenarios_position.items():
 

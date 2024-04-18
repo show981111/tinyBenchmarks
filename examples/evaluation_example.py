@@ -1,6 +1,6 @@
 import sys
 
-# In order to import custom tiny bench
+# In order to import custom tiny bench from example directory
 sys.path.append("../")
 
 import logging

@@ -45,7 +45,7 @@ class Estimator:
             ) as handle:
                 anchor_data.weights[scenario] = pickle.load(handle)
         self.anc = anchor_data
-        A, B, _ = load_irt_parameters(saved_dir / "irt_model")
+        A, B, _ = load_irt_parameters(saved_dir / "models/irt_model")
         seen_items = np.hstack(
             [
                 np.array(scenarios_position[scenario])[anchor_data.points[scenario]]

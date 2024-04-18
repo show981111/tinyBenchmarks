@@ -96,16 +96,18 @@ class TinyBenchmark:
                     raise Exception(
                         "Should evaluate all benchmarks with the same models!"
                     )
-            try:
-                self.bm_to_proc[bm_config.name] = BENCHMARK2PROCESSOR[bm_config.name](
-                    bm_config
-                )
-            except KeyError:
+
+            if not (bm_config.name in BENCHMARK2PROCESSOR):
                 logger.error(
                     "Unkown benchmark name: %s. Please create the processor for the benchmark and register in processor.registry!",
                     bm_config.name,
                 )
-                return
+                raise KeyError
+
+            self.bm_to_proc[bm_config.name] = BENCHMARK2PROCESSOR[bm_config.name](
+                bm_config
+            )
+
             d = self.bm_to_proc[bm_config.name].create_correctness_array(
                 self.train_mode
             )
@@ -227,7 +229,9 @@ class TinyBenchmark:
                     handle,
                 )
 
-        logger.info("Points: %s", str(anchor_data.points[scenario]))
+            logger.info(
+                "Points for %s: %s", scenario, str(anchor_data.points[scenario])
+            )
         for scenario in self.scenarios_position.keys():
             Y_anchor = self.test_data[:, self.scenarios_position[scenario]][
                 :, anchor_data.points[scenario]
