@@ -25,6 +25,8 @@ class BenchmarkConfig(BaseModel):
     @root_validator(skip_on_failure=True)
     def _populate_missing_fields(cls, values: dict[str, Any]) -> dict[str, Any]:
         results: list[EvaluationResult] = values["results"]
+        results = sorted(results, key=lambda x: x.model)
+
         models: list[str] = []
         if len(results) == 0:
             raise ValueError("Empty results.")
@@ -34,6 +36,7 @@ class BenchmarkConfig(BaseModel):
         sub_key = values["subscenario_keyword"]
         if sub_key is None:
             values["subscenario_keyword"] = values["name"] + "_sub_key"
+        print(models)
         return values
 
 
@@ -72,7 +75,6 @@ class BenchmarkProcessor(ABC):
         self.questions = QuestionDict(data={})
         self.predictions = PredictionDict(predictions_per_model={})
 
-        logger.info("Opening %s", bm_config.question_file)
         with open(bm_config.question_file) as file:
             formatted_question = self.format_questions(json.load(file))
             for q in formatted_question:

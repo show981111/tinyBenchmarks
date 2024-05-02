@@ -23,4 +23,6 @@ class GQAprocessor(BenchmarkProcessor):
         return data
 
     def format_predictions(self, predictions: dict) -> dict[str, str]:
-        return {str(p["questionId"]): p["prediction"] for p in predictions}
+        if isinstance(predictions, list):
+            return {str(p["questionId"]): p["prediction"] for p in predictions}
+        return {str(p["question_id"]): p["model_output"] for p in predictions.values()}

@@ -1,5 +1,7 @@
 # *tinyBenchmarks*: evaluating LLMs with fewer examples
 
+## Refer to custom_tiny_bench.md to how to create your own tiny benchmark using your custom dataset.
+
 Welcome to the [*tinyBenchmarks* GitHub repository](https://github.com/felipemaiapolo/tinyBenchmarks)! Here you will find more information about tiny datasets, how to estimate Large Language Model (LLM) performance using them using our Python package, a [demo](https://github.com/felipemaiapolo/tinyBenchmarks/blob/main/tinyBenchmarks_MMLU_demo.ipynb) in which we test our methods in MMLU, and [tutorials](https://github.com/felipemaiapolo/tinyBenchmarks/tree/main/tutorials) on how to obtain your own tiny datasets and make cheap model evaluation using the ideas presented in 
 
 [Maia Polo, Felipe, Lucas Weber, Leshem Choshen, Yuekai Sun, Gongjun Xu, and Mikhail Yurochkin. "tinyBenchmarks: evaluating LLMs with fewer examples." arXiv preprint arXiv:2402.14992 (2024)](https://arxiv.org/abs/2402.14992) 

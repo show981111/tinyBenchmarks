@@ -1,3 +1,4 @@
+import logging
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +17,8 @@ from custom_tiny_bench.irt_trainer.irt import (
     train_irt_model,
 )
 from custom_tiny_bench.irt_trainer.utils import item_curve
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -147,6 +150,7 @@ class IrtTrainer:
         random_state: int = 42,
         clustering: Union[Literal["irt"], Literal["correct."]] = "irt",
         train_data: Optional[npt.NDArray] = None,
+        number_item_per_scenario: dict[str, int] = {},
     ) -> Anchor:
         """Extract the anchor points using irt/correctness clustring.
 
@@ -154,6 +158,8 @@ class IrtTrainer:
             Tuple of anchor points and weights. Indices in anchor points are indices of train_data[scenario].
             Which means, Indices in the Nd array of training data filtered by each scenario.
         """
+        logger.info("Sampling %d items", number_item)
+
         anchor_points = {}
         anchor_weights = {}
         model_dir = self.model_dir / "irt_model/"
@@ -178,8 +184,13 @@ class IrtTrainer:
             norm_balance_weights /= norm_balance_weights.sum()
 
             # Fitting the KMeans model
+            if scenario not in number_item_per_scenario.keys():
+                number_item_per_scenario[scenario] = number_item
+
             kmeans = KMeans(
-                n_clusters=number_item, n_init="auto", random_state=random_state
+                n_clusters=number_item_per_scenario[scenario],
+                n_init="auto",
+                random_state=random_state,
             )
             kmeans.fit(X, sample_weight=norm_balance_weights)
 
@@ -192,7 +203,7 @@ class IrtTrainer:
             anchor_weights[scenario] = np.array(
                 [
                     np.sum(norm_balance_weights[kmeans.labels_ == c])
-                    for c in range(number_item)
+                    for c in range(number_item_per_scenario[scenario])
                 ]
             )
 

@@ -1,3 +1,4 @@
+import collections
 import json
 import logging
 from pathlib import Path
@@ -190,6 +191,7 @@ class TinyBenchmark:
         number_item: int = 100,
         random_state=42,
         clustering: Union[Literal["irt"], Literal["correct."]] = "irt",
+        number_item_per_scenario: dict[str, int] = {},
     ) -> Anchor:
         """Extracts anchors from each benchmark.
 
@@ -206,6 +208,7 @@ class TinyBenchmark:
             raise Exception(
                 "Need to train the irt first before getting anchors. Call train_irt() first!"
             )
+        logger.info("Sampling %d items", number_item)
 
         anchor_data = self.trainer.extract_anchors(
             self.balance_weights,
@@ -214,6 +217,7 @@ class TinyBenchmark:
             random_state=random_state,
             clustering=clustering,
             train_data=self.train_data,
+            number_item_per_scenario=number_item_per_scenario,
         )
 
         # save anchors as question ids
@@ -231,6 +235,18 @@ class TinyBenchmark:
 
             logger.info(
                 "Points for %s: %s", scenario, str(anchor_data.points[scenario])
+            )
+            logger.info(
+                "Duplicate list: %s",
+                str(
+                    [
+                        item
+                        for item, count in collections.Counter(
+                            anchor_data.points[scenario]
+                        ).items()
+                        if count > 1
+                    ]
+                ),
             )
         for scenario in self.scenarios_position.keys():
             Y_anchor = self.test_data[:, self.scenarios_position[scenario]][

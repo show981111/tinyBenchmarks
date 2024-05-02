@@ -84,9 +84,9 @@ class Estimator:
             ][:, anchor_data.points[scenario]]
 
             for idx, score in enumerate(preds[scenario]):
-                logger.info(f"[Naive accuracy]: {Y_naive[idx].mean():.6f}")
+                logger.info(f"[Naive accuracy][{scenario}]: {Y_naive[idx].mean():.6f}")
                 logger.info(
-                    f"[IRT] predicted score for {idx}_th model in {scenario}: {score:.6f}"
+                    f"[IRT][{scenario}] predicted score for {idx}_th model in {scenario}: {score:.6f}"
                 )
 
         if p_irt:
@@ -118,7 +118,7 @@ class Estimator:
 
                 for idx, score in enumerate(pirt_preds[scenario]):
                     logger.info(
-                        f"[p-IRT] predicted score for {idx}_th model in {scenario}: {score:.6f}"
+                        f"[p-IRT][{scenario}] predicted score for {idx}_th model in {scenario}: {score:.6f}"
                     )
 
         if gp_irt:
@@ -134,7 +134,7 @@ class Estimator:
 
                 for idx, score in enumerate(gpirt_preds[scenario]):
                     logger.info(
-                        f"[gp-IRT] predicted score for {idx}_th model in {scenario}: {score:.6f}"
+                        f"[gp-IRT][{scenario}] predicted score for {idx}_th model in {scenario}: {score:.6f}"
                     )
 
         return (preds, pirt_preds, gpirt_preds)
